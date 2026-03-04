@@ -6,6 +6,9 @@ import {
   ScrollView,
   TextInput,
   Platform,
+  Modal,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,8 +25,10 @@ import {
   Search,
   ScanLine,
   Mic,
+  X,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAssistance } from '@/hooks/useAssistance';
 import { ToolListItem } from '@/components/ToolListItem';
 import { SectionHeader } from '@/components/SectionHeader';
 
@@ -39,6 +44,21 @@ interface Tool {
 export default function ToolsScreen() {
   const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const { loading, error, response, requestGuide, clear } = useAssistance();
+
+  const handleToolPress = async (tool: Tool) => {
+    setSelectedTool(tool);
+    setModalVisible(true);
+    await requestGuide(tool.id, [tool.title, tool.subtitle]);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedTool(null);
+    clear();
+  };
 
   const allTools: Tool[] = [
     // Visión
@@ -207,6 +227,7 @@ export default function ToolsScreen() {
                   title={tool.title}
                   subtitle={tool.subtitle}
                   color={tool.color}
+                  onPress={() => handleToolPress(tool)}
                 />
               ))}
           </View>
@@ -226,6 +247,100 @@ export default function ToolsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Assistance Response Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.surface },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {selectedTool?.title ?? 'Asistencia'}
+              </Text>
+              <TouchableOpacity
+                onPress={closeModal}
+                accessibilityLabel="Cerrar"
+              >
+                <X size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {loading && (
+              <View style={styles.modalBody}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text
+                  style={[
+                    styles.modalMessage,
+                    { color: colors.textSecondary, marginTop: 12 },
+                  ]}
+                >
+                  Consultando al asistente...
+                </Text>
+              </View>
+            )}
+
+            {error && (
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalMessage, { color: colors.error }]}>
+                  {error}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.retryButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() =>
+                    selectedTool &&
+                    requestGuide(selectedTool.id, [
+                      selectedTool.title,
+                      selectedTool.subtitle,
+                    ])
+                  }
+                >
+                  <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {response && (
+              <View style={styles.modalBody}>
+                <View
+                  style={[
+                    styles.instructionCard,
+                    { backgroundColor: colors.primary + '10' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.instructionText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {response.instruction}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.sessionId,
+                    { color: colors.textTertiary },
+                  ]}
+                >
+                  Sesión: {response.sessionId.slice(0, 8)}...
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -285,5 +400,62 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    minHeight: 250,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalBody: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  modalMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  instructionCard: {
+    padding: 20,
+    borderRadius: 16,
+    width: '100%',
+  },
+  instructionText: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  sessionId: {
+    fontSize: 12,
+    marginTop: 12,
   },
 });

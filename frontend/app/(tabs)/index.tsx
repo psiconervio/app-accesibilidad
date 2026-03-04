@@ -4,6 +4,8 @@ import {
   Text,
   View,
   ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,14 +19,19 @@ import {
   HandMetal,
   Vibrate,
   BookOpen,
+  Wifi,
+  WifiOff,
+  RefreshCw,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useBackendStatus } from '@/hooks/useBackendStatus';
 import { FeatureCard } from '@/components/FeatureCard';
 import { QuickActionButton } from '@/components/QuickActionButton';
 import { SectionHeader } from '@/components/SectionHeader';
 
 export default function HomeScreen() {
   const colors = useThemeColors();
+  const { status, retry } = useBackendStatus();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -133,6 +140,71 @@ export default function HomeScreen() {
               style={styles.cardRight}
             />
           </View>
+
+          {/* Backend Connection Status */}
+          <TouchableOpacity
+            onPress={status !== 'checking' ? retry : undefined}
+            activeOpacity={0.7}
+            style={[
+              styles.connectionBanner,
+              {
+                backgroundColor:
+                  status === 'connected'
+                    ? colors.success + '14'
+                    : status === 'disconnected'
+                      ? colors.error + '14'
+                      : colors.warning + '14',
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              status === 'connected'
+                ? 'Servidor conectado'
+                : 'Servidor desconectado. Toca para reintentar'
+            }
+          >
+            {status === 'checking' ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.warning}
+                style={{ marginRight: 10 }}
+              />
+            ) : status === 'connected' ? (
+              <Wifi
+                size={18}
+                color={colors.success}
+                style={{ marginRight: 10 }}
+              />
+            ) : (
+              <WifiOff
+                size={18}
+                color={colors.error}
+                style={{ marginRight: 10 }}
+              />
+            )}
+            <Text
+              style={[
+                styles.connectionText,
+                {
+                  color:
+                    status === 'connected'
+                      ? colors.success
+                      : status === 'disconnected'
+                        ? colors.error
+                        : colors.warning,
+                },
+              ]}
+            >
+              {status === 'checking'
+                ? 'Conectando al servidor...'
+                : status === 'connected'
+                  ? 'Servidor conectado'
+                  : 'Sin conexión al servidor'}
+            </Text>
+            {status === 'disconnected' && (
+              <RefreshCw size={16} color={colors.error} style={{ marginLeft: 'auto' }} />
+            )}
+          </TouchableOpacity>
 
           {/* Info Banner */}
           <View
@@ -255,5 +327,16 @@ const styles = StyleSheet.create({
   infoBannerDescription: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  connectionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 16,
+  },
+  connectionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
